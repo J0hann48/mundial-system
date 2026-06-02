@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import SpecialPicks from './SpecialPicks'
 import { supabase } from './supabaseClient'
 import { flagUrl } from './flags'
 
@@ -145,10 +146,14 @@ function Home({ session }) {
             {profile.is_admin && (
               <button className={tab === 'admin' ? 'tab on' : 'tab'} onClick={() => setTab('admin')}>Resultados</button>
             )}
+            {profile.pool_id && (
+              <button className={tab === 'selecciones' ? 'tab on' : 'tab'} onClick={() => setTab('selecciones')}>Campeón</button>
+            )}
           </nav>
 
           {tab === 'pronosticos' && profile.pool_id && <Predictions uid={uid} />}
           {tab === 'tabla' && profile.pool_id && <Leaderboard poolId={profile.pool_id} uid={uid} />}
+          {tab === 'selecciones' && profile.pool_id && <SpecialPicks uid={uid} />}
           {tab === 'admin' && profile.is_admin && <AdminResults />}
         </>
       )}

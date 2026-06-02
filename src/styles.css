@@ -156,3 +156,8 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 }
 .toggle input { width: 16px; height: 16px; accent-color: var(--accent); }
 .admin-actions { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+
+
+.lbl { display: block; color: var(--muted); font-size: 13px; font-weight: 700; margin: 16px 0 6px; }
+.champ-row { display: flex; align-items: center; gap: 10px; }
+.champ-row .input { flex: 1; }
