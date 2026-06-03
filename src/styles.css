@@ -161,3 +161,9 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .lbl { display: block; color: var(--muted); font-size: 13px; font-weight: 700; margin: 16px 0 6px; }
 .champ-row { display: flex; align-items: center; gap: 10px; }
 .champ-row .input { flex: 1; }
+
+.progress { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.progress-text { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.progress-text b { color: var(--accent); }
+.progress-bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }

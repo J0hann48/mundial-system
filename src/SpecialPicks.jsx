@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabaseClient'
-import { flagUrl } from './flags'
+import { flagUrl, TEAMS } from './flags'
 
 function ventanaAbierta(cfg) {
   if (!cfg) return false
@@ -14,21 +14,16 @@ function ventanaAbierta(cfg) {
 
 export default function SpecialPicks({ uid }) {
   const [cfg, setCfg] = useState(null)
-  const [teams, setTeams] = useState([])
   const [pick, setPick] = useState({ champion_team: '', top_scorer: '' })
   const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const [{ data: c }, { data: m }, { data: sp }] = await Promise.all([
+    const [{ data: c }, { data: sp }] = await Promise.all([
       supabase.from('app_config').select('*').eq('id', 1).single(),
-      supabase.from('matches').select('home_team,away_team'),
       supabase.from('special_picks').select('*').eq('user_id', uid).maybeSingle(),
     ])
     setCfg(c)
-    const set = new Set()
-    ;(m || []).forEach(r => { set.add(r.home_team); set.add(r.away_team) })
-    setTeams([...set].sort((a, b) => a.localeCompare(b, 'es')))
     if (sp) setPick({ champion_team: sp.champion_team || '', top_scorer: sp.top_scorer || '' })
     setLoading(false)
   }, [uid])
@@ -76,7 +71,7 @@ export default function SpecialPicks({ uid }) {
           value={pick.champion_team}
           onChange={e => setPick(p => ({ ...p, champion_team: e.target.value }))}>
           <option value="">— Elige una selección —</option>
-          {teams.map(t => <option key={t} value={t}>{t}</option>)}
+          {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
         </select>
         {cfg?.official_champion &&
           <span className={champHit ? 'tag pts' : 'tag'}>{champHit ? `+${cfg.champion_points}` : '✗'}</span>}

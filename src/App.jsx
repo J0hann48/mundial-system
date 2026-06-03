@@ -188,6 +188,7 @@ function Predictions({ uid }) {
   const [points, setPoints] = useState({})
   const [status, setStatus] = useState({})
   const [loading, setLoading] = useState(true)
+  const [savedIds, setSavedIds] = useState(new Set())
 
   const load = useCallback(async () => {
     const [{ data: m }, { data: p }, { data: pp }] = await Promise.all([
@@ -197,6 +198,7 @@ function Predictions({ uid }) {
     ])
     setMatches(m || [])
     setPreds(Object.fromEntries((p || []).map(r => [r.match_id, r])))
+    setSavedIds(new Set((p || []).map(r => r.match_id)))
     setPoints(Object.fromEntries((pp || []).map(r => [r.match_id, r.points])))
     setLoading(false)
   }, [uid])
@@ -217,7 +219,10 @@ function Predictions({ uid }) {
       { onConflict: 'user_id,match_id' }
     )
     setStatus(s => ({ ...s, [matchId]: error ? 'error' : 'saved' }))
-    if (!error) setTimeout(() => setStatus(s => ({ ...s, [matchId]: undefined })), 1500)
+    if (!error) {
+      setSavedIds(prev => new Set(prev).add(matchId))
+      setTimeout(() => setStatus(s => ({ ...s, [matchId]: undefined })), 1500)
+    }
   }
 
   const grouped = useMemo(() => {
@@ -228,9 +233,16 @@ function Predictions({ uid }) {
 
   if (loading) return <Splash text="Cargando partidos…" />
   if (!matches.length) return <div className="card center"><p className="muted">Aún no hay partidos cargados.</p></div>
-
+  const total = matches.length
+  const llenos = matches.filter(m => savedIds.has(m.id)).length
   return (
     <div className="stack">
+      <div className="progress">
+        <div className="progress-text">Has llenado <b>{llenos}</b> de <b>{total}</b> partidos</div>
+        <div className="progress-bar">
+          <div className="progress-fill" style={{ width: `${total ? (llenos / total) * 100 : 0}%` }} />
+      </div>
+    </div>
       {grouped.map(([phase, list]) => (
         <section key={phase}>
           <h3 className="phase">{PHASE_LABEL[phase] || phase}</h3>

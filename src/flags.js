@@ -56,3 +56,9 @@ export function flagUrl(team) {
   const code = CODES[team]
   return code ? `https://flagcdn.com/w40/${code}.png` : null
 }
+
+// Lista de selecciones para los menús (nombres canónicos, sin duplicados).
+// Se filtra 'RI de Irán' para dejar 'Irán' como único nombre de esa selección.
+export const TEAMS = Object.keys(CODES)
+  .filter(t => t !== 'RI de Irán')
+  .sort((a, b) => a.localeCompare(b, 'es'))
