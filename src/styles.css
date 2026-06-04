@@ -144,7 +144,8 @@ h2 { font-size: 20px; margin: 0 0 4px; }
   flex: 0 0 auto;
 }
 .team { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.team > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team > span { white-space: normal; overflow-wrap: anywhere; line-height: 1.15; }
+.team.right > span { text-align: right; }
 .team.right { justify-content: flex-end; }
 
 /* --- admin --- */
