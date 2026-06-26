@@ -189,6 +189,7 @@ function Predictions({ uid }) {
   const [status, setStatus] = useState({})
   const [loading, setLoading] = useState(true)
   const [savedIds, setSavedIds] = useState(new Set())
+  const [view, setView] = useState('jugar') // 'jugar' | 'historial'
 
   const load = useCallback(async () => {
     const [{ data: m }, { data: p }, { data: pp }] = await Promise.all([
@@ -225,57 +226,152 @@ function Predictions({ uid }) {
     }
   }
 
-  const grouped = useMemo(() => {
+  // Partido abierto = aún se puede llenar (no ha llegado el cierre de 30 min)
+  const openMatches = useMemo(
+    () => matches.filter(m => !isClosed(m.kickoff_at)),
+    [matches]
+  )
+  // Partido cerrado = ya en juego o jugado (entra al historial)
+  const closedMatches = useMemo(
+    () => matches.filter(m => isClosed(m.kickoff_at)),
+    [matches]
+  )
+  // Los 5 cerrados más recientes, del más nuevo al más viejo
+  const recentClosed = useMemo(
+    () => closedMatches.slice(-5).reverse(),
+    [closedMatches]
+  )
+
+  // Agrupa una lista por fase respetando el orden del torneo
+  function groupByPhase(list) {
     const g = {}
-    for (const m of matches) (g[m.phase] ||= []).push(m)
-    return Object.entries(g).sort((a, b) => (PHASE_ORDER[a[0]] ?? 99) - (PHASE_ORDER[b[0]] ?? 99))
-  }, [matches])
+    for (const mm of list) (g[mm.phase] ||= []).push(mm)
+    return Object.entries(g).sort(
+      (a, b) => (PHASE_ORDER[a[0]] ?? 99) - (PHASE_ORDER[b[0]] ?? 99)
+    )
+  }
+  const openGrouped = useMemo(() => groupByPhase(openMatches), [openMatches])
 
   if (loading) return <Splash text="Cargando partidos…" />
   if (!matches.length) return <div className="card center"><p className="muted">Aún no hay partidos cargados.</p></div>
+
   const total = matches.length
   const llenos = matches.filter(m => savedIds.has(m.id)).length
+
   return (
     <div className="stack">
-      <div className="progress">
-        <div className="progress-text">Has llenado <b>{llenos}</b> de <b>{total}</b> partidos</div>
-        <div className="progress-bar">
-          <div className="progress-fill" style={{ width: `${total ? (llenos / total) * 100 : 0}%` }} />
+      {/* Sub-pestañas: lo que falta por llenar vs. el historial completo */}
+      <nav className="tabs">
+        <button className={view === 'jugar' ? 'tab on' : 'tab'} onClick={() => setView('jugar')}>
+          Por jugar{openMatches.length ? ` (${openMatches.length})` : ''}
+        </button>
+        <button className={view === 'historial' ? 'tab on' : 'tab'} onClick={() => setView('historial')}>
+          Historial{closedMatches.length ? ` (${closedMatches.length})` : ''}
+        </button>
+      </nav>
+
+      {view === 'jugar' ? (
+        <>
+          <div className="progress">
+            <div className="progress-text">Has llenado <b>{llenos}</b> de <b>{total}</b> partidos</div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: `${total ? (llenos / total) * 100 : 0}%` }} />
+            </div>
+          </div>
+
+          {/* Partidos abiertos: lo que falta por pronosticar */}
+          {openGrouped.length === 0 ? (
+            <div className="card center">
+              <p className="muted">No hay partidos abiertos por ahora. Entra a <b>Historial</b> para ver tus resultados y puntos.</p>
+            </div>
+          ) : (
+            openGrouped.map(([phase, list]) => (
+              <section key={phase}>
+                <h3 className="phase">{PHASE_LABEL[phase] || phase}</h3>
+                {list.map(m => {
+                  const pr = preds[m.id] || {}
+                  const st = status[m.id]
+                  return (
+                    <div className="match" key={m.id}>
+                      <div className="match-meta">
+                        <span>{m.grp ? `Grupo ${m.grp} · ` : ''}{fmtDate(m.kickoff_at)}</span>
+                      </div>
+                      <div className="match-row">
+                        <span className="team"><Flag team={m.home_team} /><span>{m.home_team}</span></span>
+                        <input className="score" inputMode="numeric"
+                          value={pr.pred_home ?? ''} onChange={e => setVal(m.id, 'pred_home', e.target.value)} />
+                        <span className="vs">–</span>
+                        <input className="score" inputMode="numeric"
+                          value={pr.pred_away ?? ''} onChange={e => setVal(m.id, 'pred_away', e.target.value)} />
+                        <span className="team right"><span>{m.away_team}</span><Flag team={m.away_team} /></span>
+                      </div>
+                      <button className="btn slim" onClick={() => save(m.id)} disabled={st === 'saving'}>
+                        {st === 'saving' ? 'Guardando…' : st === 'saved' ? '✓ Guardado' : st === 'error' ? 'Error, reintentar' : 'Guardar'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </section>
+            ))
+          )}
+
+          {/* Últimos resultados: referencia rápida sin salir de la vista */}
+          {recentClosed.length > 0 && (
+            <section>
+              <h3 className="phase">Últimos resultados</h3>
+              {recentClosed.map(m => (
+                <PlayedRow key={m.id} m={m} preds={preds} points={points} />
+              ))}
+              <button className="link" onClick={() => setView('historial')}>
+                Ver todos los partidos jugados →
+              </button>
+            </section>
+          )}
+        </>
+      ) : (
+        <HistorialView closedMatches={closedMatches} preds={preds} points={points} />
+      )}
+    </div>
+  )
+}
+
+// Fila de solo lectura para un partido cerrado: casillas = tu pronóstico,
+// etiqueta verde = puntos + marcador oficial (mismo formato de siempre).
+function PlayedRow({ m, preds, points }) {
+  const played = m.home_goals != null && m.away_goals != null
+  const pr = preds[m.id] || {}
+  return (
+    <div className="match">
+      <div className="match-meta">
+        <span>{m.grp ? `Grupo ${m.grp} · ` : ''}{PHASE_LABEL[m.phase] || m.phase} · {fmtDate(m.kickoff_at)}</span>
+        {played
+          ? <span className="tag pts">{points[m.id] ?? 0} pts · {m.home_goals}-{m.away_goals}</span>
+          : <span className="tag">Cerrado</span>}
+      </div>
+      <div className="match-row">
+        <span className="team"><Flag team={m.home_team} /><span>{m.home_team}</span></span>
+        <input className="score" inputMode="numeric" disabled readOnly value={pr.pred_home ?? ''} />
+        <span className="vs">–</span>
+        <input className="score" inputMode="numeric" disabled readOnly value={pr.pred_away ?? ''} />
+        <span className="team right"><span>{m.away_team}</span><Flag team={m.away_team} /></span>
       </div>
     </div>
-      {grouped.map(([phase, list]) => (
-        <section key={phase}>
-          <h3 className="phase">{PHASE_LABEL[phase] || phase}</h3>
-          {list.map(m => {
-            const closed = isClosed(m.kickoff_at)
-            const played = m.home_goals != null && m.away_goals != null
-            const pr = preds[m.id] || {}
-            const st = status[m.id]
-            return (
-              <div className="match" key={m.id}>
-                <div className="match-meta">
-                  <span>{m.grp ? `Grupo ${m.grp} · ` : ''}{fmtDate(m.kickoff_at)}</span>
-                  {closed && !played && <span className="tag">Cerrado</span>}
-                  {played && <span className="tag pts">{points[m.id] ?? 0} pts · {m.home_goals}-{m.away_goals}</span>}
-                </div>
-                <div className="match-row">
-                  <span className="team"><Flag team={m.home_team} /><span>{m.home_team}</span></span>
-                  <input className="score" inputMode="numeric" disabled={closed}
-                    value={pr.pred_home ?? ''} onChange={e => setVal(m.id, 'pred_home', e.target.value)} />
-                  <span className="vs">–</span>
-                  <input className="score" inputMode="numeric" disabled={closed}
-                    value={pr.pred_away ?? ''} onChange={e => setVal(m.id, 'pred_away', e.target.value)} />
-                  <span className="team right"><span>{m.away_team}</span><Flag team={m.away_team} /></span>
-                </div>
-                {!closed && (
-                  <button className="btn slim" onClick={() => save(m.id)} disabled={st === 'saving'}>
-                    {st === 'saving' ? 'Guardando…' : st === 'saved' ? '✓ Guardado' : st === 'error' ? 'Error, reintentar' : 'Guardar'}
-                  </button>
-                )}
-              </div>
-            )
-          })}
-        </section>
+  )
+}
+
+// Historial completo: todos los cerrados, del más reciente al más antiguo.
+function HistorialView({ closedMatches, preds, points }) {
+  const ordered = useMemo(() => [...closedMatches].reverse(), [closedMatches])
+  if (!ordered.length) {
+    return <div className="card center"><p className="muted">Todavía no hay partidos jugados. Aquí verás tus resultados y puntos a medida que se jueguen.</p></div>
+  }
+  return (
+    <div className="stack">
+      <p className="muted" style={{ margin: '2px 2px 6px' }}>
+        Todos los partidos que ya cerraron. Los números en blanco son tu pronóstico; en la etiqueta verde ves el marcador oficial y los puntos que ganaste.
+      </p>
+      {ordered.map(m => (
+        <PlayedRow key={m.id} m={m} preds={preds} points={points} />
       ))}
     </div>
   )
