@@ -337,9 +337,12 @@ function Predictions({ uid }) {
 
 // Fila de solo lectura para un partido cerrado: casillas = tu pronóstico,
 // etiqueta verde = puntos + marcador oficial (mismo formato de siempre).
+// Al hacer clic en "Ver pronósticos de la familia" se cargan, bajo demanda,
+// los pronósticos de los demás (solo se puede porque el partido ya cerró).
 function PlayedRow({ m, preds, points }) {
   const played = m.home_goals != null && m.away_goals != null
   const pr = preds[m.id] || {}
+  const [showPreds, setShowPreds] = useState(false)
   return (
     <div className="match">
       <div className="match-meta">
@@ -355,7 +358,45 @@ function PlayedRow({ m, preds, points }) {
         <input className="score" inputMode="numeric" disabled readOnly value={pr.pred_away ?? ''} />
         <span className="team right"><span>{m.away_team}</span><Flag team={m.away_team} /></span>
       </div>
+      <button className="link preds-toggle" onClick={() => setShowPreds(v => !v)}>
+        {showPreds ? 'Ocultar pronósticos de la familia ▲' : 'Ver pronósticos de la familia ▼'}
+      </button>
+      {showPreds && <MatchPredictions matchId={m.id} played={played} />}
     </div>
+  )
+}
+
+// Despliega los pronósticos de los demás de la familia para un partido YA
+// cerrado. Carga bajo demanda con el RPC get_match_predictions; el backend
+// bloquea partidos abiertos, así que aquí no hay riesgo de filtrar.
+function MatchPredictions({ matchId, played }) {
+  const [rows, setRows] = useState(null)
+  const [err, setErr] = useState(false)
+
+  useEffect(() => {
+    let alive = true
+    supabase.rpc('get_match_predictions', { p_match_id: matchId }).then(({ data, error }) => {
+      if (!alive) return
+      if (error) setErr(true)
+      else setRows(data || [])
+    })
+    return () => { alive = false }
+  }, [matchId])
+
+  if (err) return <p className="muted preds-empty">No se pudieron cargar los pronósticos.</p>
+  if (rows == null) return <p className="muted preds-empty">Cargando pronósticos…</p>
+  if (!rows.length) return <p className="muted preds-empty">Nadie de tu familia pronosticó este partido.</p>
+
+  return (
+    <ul className="preds-list">
+      {rows.map((r, i) => (
+        <li key={i} className={r.es_yo ? 'pred-item me' : 'pred-item'}>
+          <span className="pred-name">{r.nombre || '—'}{r.es_yo ? ' (tú)' : ''}</span>
+          <span className="pred-score">{r.pred_home}–{r.pred_away}</span>
+          {played && <span className="pred-pts">{r.puntos} pts</span>}
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -368,7 +409,7 @@ function HistorialView({ closedMatches, preds, points }) {
   return (
     <div className="stack">
       <p className="muted" style={{ margin: '2px 2px 6px' }}>
-        Todos los partidos que ya cerraron. Los números en blanco son tu pronóstico; en la etiqueta verde ves el marcador oficial y los puntos que ganaste.
+        Todos los partidos que ya cerraron. Los números en blanco son tu pronóstico; en la etiqueta verde ves el marcador oficial y los puntos que ganaste. Toca un partido para ver los pronósticos de la familia.
       </p>
       {ordered.map(m => (
         <PlayedRow key={m.id} m={m} preds={preds} points={points} />

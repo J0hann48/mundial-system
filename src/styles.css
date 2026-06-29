@@ -168,3 +168,62 @@ h2 { font-size: 20px; margin: 0 0 4px; }
 .progress-text b { color: var(--accent); }
 .progress-bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .progress-fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width 0.3s ease; }
+
+/* === PronÃ³sticos de la familia (desplegable por partido) ===
+   Pegar al final de styles.css */
+
+.preds-toggle {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.9rem;
+}
+
+.preds-empty {
+  margin: 8px 2px 2px;
+  font-size: 0.9rem;
+}
+
+.preds-list {
+  list-style: none;
+  margin: 8px 0 2px;
+  padding: 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.pred-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border-bottom: 1px solid #f0f1f3;
+  font-size: 0.95rem;
+}
+
+.pred-item.me {
+  background: #f0fdf4;          /* resalta tu propia fila */
+  border-radius: 8px;
+}
+
+.pred-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pred-score {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  min-width: 44px;
+  text-align: center;
+}
+
+.pred-pts {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  color: #166534;
+  background: #dcfce7;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
